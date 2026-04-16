@@ -1,0 +1,29 @@
+// {
+//   "compilerOptions": {
+//     "target": "es5",
+//     "ignoreDeprecations": "6.0",
+//     "lib": ["es6"],
+//     "strict": false,
+//     "module": "esnext",
+//     "esModuleInterop": true,
+//     "rootDir": "./src",
+//     "outDir": "./build"
+//   },
+//   "include": ["src/**/*"]
+// }
+
+{
+  "compilerOptions": {
+    "target": "ES5",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "typeRoots": [
+      "./node_modules"
+    ]
+  },
+  "include": ["src/**/*", "__main.ts"]
+}
