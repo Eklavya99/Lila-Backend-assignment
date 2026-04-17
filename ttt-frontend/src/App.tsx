@@ -65,8 +65,8 @@ export default function App() {
             setSession(sess);
             setMyUserId(sess.user_id!);
 
-            
-            const sock = CLIENT.createSocket(false, false);
+            const useSSL = process.env.REACT_APP_NAKAMA_SSL === "true";
+            const sock = CLIENT.createSocket(useSSL, false);
             await sock.connect(sess, false);
 
             sock.onmatchdata = (data) => {
