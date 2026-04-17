@@ -1,43 +1,53 @@
-# TicTacToe Nakama
+# Tic-Tac-Toe Nakama: Server-Authoritative Multiplayer
 
-Realtime multiplayer Tic-Tac-Toe built with a Nakama authoritative server and a React frontend.
-### TEST IT: `https://lila-backend-assignment.vercel.app/`
+A production-ready, real-time multiplayer Tic-Tac-Toe game built with a Nakama authoritative server and a React frontend. The system is designed to handle real-time state synchronization, matchmaking, and player persistence.
 
-<img width="2559" height="1376" alt="image" src="https://github.com/user-attachments/assets/4cd7f29f-a319-4b12-8044-eae1e84ea8c5" />
+## 🎮 Live Game Link
 
+* **Vercel Hosted:** [https://lila-backend-assignment.vercel.app/](https://lila-backend-assignment.vercel.app/)
 
-### Tech Stack
+## 🏗️ Tech Stack & Infrastructure
 
-- Backend: Nakama runtime module written in TypeScript
-- Match logic: authoritative server-side match handler
-- Frontend: React + TypeScript (`create-react-app`)
-- Realtime transport: Nakama socket + matchmaker
-- Local infra: Docker Compose (Nakama + Postgres)
+* **Backend:** Nakama Runtime (TypeScript) running in Docker
+* **Frontend:** React + TypeScript (Vercel)
+* **Reverse Proxy:** Nginx handling SSL termination and WebSocket upgrades
+* **Security:** SSL/TLS enabled via Certbot / Let's Encrypt for all backend traffic
+* **DNS:** DuckDNS (`lila-ttt-game.duckdns.org`) pointing to a DigitalOcean Droplet
 
-### Project Structure
+## 🚀 Current Deployment State
 
-- `Server/` - Nakama runtime module source, build config, and Docker Compose file
-- `ttt-frontend/` - React client app
+* ✅ **Mobile to Mobile:** Fully functional
+* ✅ **Edge browser to Edge browser in PC:** Fully functional
+* ✅ **Mobile to Desktop (Edge browser):** Fully functional
+* ⚠️ **Desktop Chrome:** Connection issues persist due to strict browser security policies present in Chrome (Look at workaround below)
 
+## 🌐 Desktop Chrome Troubleshooting
 
-### Features
+Despite a valid SSL configuration on the server, Desktop Chrome’s internal security engine may intercept the WebSocket (`wss://`) upgrade when connecting from a different origin to a dynamic DNS provider.
 
-- Device-based authentication with nickname support
-- Automatic 1v1 matchmaking
-- Authoritative move validation on the server
-- Realtime game state sync (`game_start`, `game_update`)
-- Disconnect grace period (15 seconds) before forfeit
-- Win/loss tracking in Nakama leaderboard
-- Leaderboard view in frontend
+### To enable gameplay on Desktop Chrome
 
-### Prerequisites
+1. Click the **Padlock** icon in the URL bar and open **Site Settings**.
+2. Change **Insecure content** to **Allow**.
 
-- Node.js 18+ and npm
-- Docker Desktop (or Docker Engine + Compose)
+### Alternative "Nuclear" Fix (IF CHROME STILL BLOCKS REQUEST EVEN AFTER ALLOWING INSECURE CONTENT)
 
-## Quick Start (Local Development)
+1. Navigate to `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
+2. Enable the flag.
+3. Add:
+   `https://lila-ttt-game.duckdns.org`
+4. Relaunch Chrome.
 
-### 1) Build the Nakama runtime module
+## 🛠️ Project Features
+
+* **Authoritative Match Logic:** All game state and move validations are handled server-side to prevent cheating
+* **Real-time Matchmaking:** Automatic 1v1 pairing
+* **Resilience:** 15-second grace period for player reconnection before forfeit
+* **Global Leaderboard:** Win/Loss tracking using Nakama's native leaderboard system
+
+## 💻 Local Development
+
+### 1. Build the Module
 
 ```bash
 cd Server
@@ -45,123 +55,35 @@ npm install
 npm run build
 ```
 
-This generates `Server/build/main.js`, which Nakama loads as the runtime module. If npm run build doesnt work and gives module error run:
+If module errors occur:
+
 ```bash
 npx rollup -c --bundleConfigAsCjs
 ```
 
-### 2) Start Nakama + Postgres
+### 2. Launch Infrastructure
 
 ```bash
-cd Server
 docker compose up -d
 ```
 
-Default exposed ports:
+* **Nakama API:** `7350`
+* **Console:** `7351` (Login: `admin / password`)
 
-- `7350` - Nakama API
-- `7351` - Nakama console
-- `7349` - Nakama gRPC
-- `5432` - Postgres
-
-### 3) Start the frontend
+### 3. Start Frontend
 
 ```bash
 cd ttt-frontend
-npm install
 npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+## 🧪 How to Test
 
-### Frontend Environment Variables
+1. Open the live link on two devices (for example, Phone + Desktop Edge).
+2. Enter a nickname and click **Play**.
+3. The server pairs both instances into a single authoritative match room.
+4. Observe real-time state broadcasts as moves are validated and applied.
 
-Configure these in `ttt-frontend/.env`:
+## 📌 Summary
 
-```env
-REACT_APP_NAKAMA_KEY=defaultkey
-REACT_APP_NAKAMA_HOST=localhost
-REACT_APP_NAKAMA_PORT=7350
-REACT_APP_NAKAMA_SSL=false
-```
-
-Notes:
-
-- The app currently falls back to a hardcoded host if `REACT_APP_NAKAMA_HOST` is not set.
-- For local Docker-based development, set host to `localhost`.
-
-### How It Works
-
-1. Player enters nickname and authenticates via `authenticateDevice`.
-2. Client joins matchmaker (`min=2`, `max=2`).
-3. Nakama `matchmakerMatched` creates a `tic-tac-toe` match.
-4. Match handler manages player joins, turns, moves, and disconnect handling.
-5. Server broadcasts game state updates to both players.
-6. On game over, server writes win/loss records to `tictactoe_wins` leaderboard.
-
-
-### Development Tips
-
-- Rebuild server module after backend changes:
-
-```bash
-cd Server
-npm run build
-```
-
-- Restart Nakama after rebuilding module:
-
-```bash
-cd Server
-docker compose restart nakama
-```
-
-- Stop local services:
-
-```bash
-cd Server
-docker compose down
-```
-
-# Deployment Notes
-### ⚠️ Known Limitation: SSL and Browser Security
-
-Currently, the backend is deployed without SSL/TLS encryption (HTTP/WS only). Due to strict modern browser security policies regarding Mixed Content, please note the following limitations:
-
-* **Mobile Browsers:** Will actively block the application from sending network requests to the backend. The app will not function on mobile in its current state.
-* **Desktop Browsers:** To test or play the game on desktop, you must manually allow "Insecure content" for this site within your browser's site settings. 
-
-**Note on SSL Implementation:**
-An attempt was previously made to secure the DigitalOcean backend using an Nginx reverse proxy, DuckDNS, and Certbot. However, this configuration was rolled back due to persistent errors regarding WebSocket (`wss://`) connection upgrades. Therefore, SSL implementation remains pending.
-
-- use `https://lila-backend-assignment.vercel.app/` link to visit the deployed site
-- Click on the padlock icon near the URL & select site settings (For chrome) <img width="889" height="548" alt="image" src="https://github.com/user-attachments/assets/cb0a924f-6355-4a68-bfed-aade91f5fc2b" />
-- A new window opens opens, Scroll down till you see Insecure Content change it from Blocked(default) to Allow.
-- <img width="2526" height="1186" alt="image" src="https://github.com/user-attachments/assets/487921be-c934-4f56-99ef-2fe29bce0660" />
-- For Edge: Click on the lock icon next to URL and select Permissions for this site & Allow on insecure sites. <img width="938" height="610" alt="image" src="https://github.com/user-attachments/assets/c9ecbf16-5193-482e-8260-62d581e95317" />
-
-## Additional notes on Chrome:
-### 🛑 Troubleshooting: Browser Security & "Provisional Headers"
-
-In some cases, the application may fail to connect to the backend server with an error message such as **"Server offline or unreachable"** or **"Failed to fetch,"** particularly when using Google Chrome.
-
-#### Understanding "Provisional headers are shown"
-When inspecting the **Network** tab in Chrome DevTools, you may see the message **"Provisional headers are shown."** This is a specific signal indicating that the request never actually left the browser. Chrome’s internal security engine intercepted the request before it could hit the network wire. This failure does not mean the DigitalOcean server is down; rather, it means the browser blocked the request because it was deemed "unsafe" under Mixed Content policies.
-
-#### The "Nuclear" Fix for Chrome Development
-To bypass these security blockades during testing or development without a full SSL setup, you can instruct Chrome's core engine to treat the backend IP as a trusted origin.
-
-1.  Navigate to the following address in Chrome:
-    `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
-2.  Set the dropdown menu to **Enabled**.
-3.  In the text box provided, paste the backend URL:
-    `http://168.144.27.183:7350`
-4.  **Relaunch Chrome** for the changes to take effect.
-
-This configuration tells the browser to treat this specific HTTP origin as if it were secure, preventing the internal security engine from intercepting the API calls.
-
-## How test on browser:
-- Open the deployed link `https://lila-backend-assignment.vercel.app/` in two tabs side by side
-- Allow insecure content from site settings as mentioned
-- Choose a fresh nickname, submit and PLAY!
-
+This project demonstrates production-style multiplayer backend engineering using Nakama, Docker, Nginx, SSL, and a modern React frontend with real-time synchronization.
