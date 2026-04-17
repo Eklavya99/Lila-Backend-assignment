@@ -3,6 +3,9 @@
 Realtime multiplayer Tic-Tac-Toe built with a Nakama authoritative server and a React frontend.
 ### TEST IT: `https://lila-backend-assignment.vercel.app/`
 
+<img width="2559" height="1376" alt="image" src="https://github.com/user-attachments/assets/4cd7f29f-a319-4b12-8044-eae1e84ea8c5" />
+
+
 ## Tech Stack
 
 - Backend: Nakama runtime module written in TypeScript
