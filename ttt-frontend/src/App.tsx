@@ -5,7 +5,7 @@ import './App.css'; // Assuming your global dark CSS is here
 const CLIENT = new nakamajs.Client(
     process.env.REACT_APP_NAKAMA_KEY || "defaultkey",
 
-    process.env.REACT_APP_NAKAMA_HOST || "localhost",
+    process.env.REACT_APP_NAKAMA_HOST || "168.144.27.183",
 
     process.env.REACT_APP_NAKAMA_PORT || "7350",
 
@@ -66,7 +66,7 @@ export default function App() {
             setMyUserId(sess.user_id!);
 
             const useSSL = process.env.REACT_APP_NAKAMA_SSL === "true";
-            const sock = CLIENT.createSocket(useSSL, false);
+            const sock = CLIENT.createSocket(false, false);
             await sock.connect(sess, false);
 
             sock.onmatchdata = (data) => {
