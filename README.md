@@ -47,7 +47,7 @@ npm run build
 
 This generates `Server/build/main.js`, which Nakama loads as the runtime module. If npm run build doesnt work and gives module error run:
 ```bash
-npx rollup -c --BuildAsCjs
+npx rollup -c --bundleConfigAsCjs
 ```
 
 ### 2) Start Nakama + Postgres
