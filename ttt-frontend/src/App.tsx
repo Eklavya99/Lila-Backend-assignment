@@ -9,7 +9,7 @@ const CLIENT = new nakamajs.Client(
 
     process.env.REACT_APP_NAKAMA_PORT || "7350",
 
-    process.env.REACT_APP_NAKAMA_SSL === "false"
+    process.env.REACT_APP_NAKAMA_SSL === "true"
 );
 
 // Matches your backend's toSerializable() output
