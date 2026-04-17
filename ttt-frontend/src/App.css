@@ -1,38 +1,145 @@
-.App {
-  text-align: center;
+:root {
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  line-height: 1.4;
+  color: #f4f4f5;
+  background: #0f172a;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
+body {
+  margin: 0;
   min-height: 100vh;
+  background: radial-gradient(circle at top, #1e293b, #0f172a 60%);
+}
+
+.app {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.game-card {
+  width: min(420px, 100%);
+  padding: 1.5rem;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow: 0 16px 40px rgba(2, 6, 23, 0.45);
+  backdrop-filter: blur(8px);
+}
+
+.title {
+  margin: 0;
+  text-align: center;
+  font-size: 1.8rem;
+}
+
+.status {
+  margin: 0.9rem 0 1rem;
+  text-align: center;
+  color: #cbd5e1;
+}
+
+/* --- Added for Login --- */
+.input-field {
+  width: 100%;
+  padding: 0.85rem;
+  margin-bottom: 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(30, 41, 59, 0.8);
+  color: #f8fafc;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 120ms ease;
+}
+
+.input-field:focus {
+  border-color: #22c55e;
+}
+
+/* --- Added for Leaderboard --- */
+.table-container {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.table-container th, .table-container td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.table-container th {
+  color: #22c55e;
+  font-weight: 600;
+}
+
+/* --- Board Styles --- */
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.55rem;
+}
+
+.square {
+  aspect-ratio: 1 / 1;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.8);
+  color: #f8fafc;
+  font-size: clamp(1.8rem, 7vw, 2.5rem);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease, background-color 120ms ease;
+}
+
+.square:hover:enabled {
+  transform: translateY(-1px);
+  background: rgba(51, 65, 85, 0.95);
+}
+
+.square:disabled {
+  cursor: not-allowed;
+  opacity: 0.95;
+}
+
+.square.winning {
+  background: rgba(34, 197, 94, 0.24);
+  border-color: rgba(34, 197, 94, 0.8);
+}
+
+/* --- Buttons --- */
+.btn-group {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  gap: 10px;
+  margin-top: 1rem;
 }
 
-.App-link {
-  color: #61dafb;
+.reset-btn {
+  width: 100%;
+  padding: 0.75rem;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #f8fafc;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 120ms ease, transform 120ms ease;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.reset-btn:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+.secondary-btn {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
 }
