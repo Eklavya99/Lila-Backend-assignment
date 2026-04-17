@@ -41,4 +41,23 @@ ssh root@droplet-ip
 - clone the git repo
 - cd server
 - Run `npx rollup -c --BuildAsCjs` to build main.js file for nakama to use
+- Allow incoming request through ports 7350 & 7351 on firewall 
 - Run `docker compose up -d` to bring up nakama container
+
+### NOTES:
+Browser Security (Mixed Content)
+Because the frontend is HTTPS (Vercel) and the backend is HTTP (IP Address), Chrome may block requests with net::ERR_SSL_PROTOCOL_ERROR or show "Provisional headers are shown".
+
+Mobile: Currently unsupported due to strict mobile browser security.
+
+Chrome (Desktop) Workaround:
+
+Go to chrome://flags/#unsafely-treat-insecure-origin-as-secure
+
+Enable the flag.
+
+Add http://YOUR_DROPLET_IP:7350 to the list.
+
+Relaunch Chrome.
+
+Edge: Usually works by simply selecting "Allow insecure content" in site settings.
