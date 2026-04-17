@@ -1,193 +1,257 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import * as nakamajs from '@heroiclabs/nakama-js';
-
+import './App.css'; // Assuming your global dark CSS is here
 
 const CLIENT = new nakamajs.Client(
-  process.env.REACT_APP_NAKAMA_KEY || "defaultkey",
-  process.env.REACT_APP_NAKAMA_HOST || "localhost",
-  process.env.REACT_APP_NAKAMA_PORT || "7350",
-  process.env.REACT_APP_NAKAMA_SSL === "true"
+    process.env.REACT_APP_NAKAMA_KEY || "defaultkey",
+
+    process.env.REACT_APP_NAKAMA_HOST || "localhost",
+
+    process.env.REACT_APP_NAKAMA_PORT || "7350",
+
+    process.env.REACT_APP_NAKAMA_SSL === "false"
 );
 
-type Board = string[];
-
+// Matches your backend's toSerializable() output
 interface GameState {
-  board: Board;
-  marks: Record<string, string>;
-  players: string[];
-  currentTurn: string;
-  winner: string | null;
-  gameOver: boolean;
+    board: string[];
+    marks: Record<string, string>;
+    players: string[];
+    currentTurn: string;
+    winner: string | null;
+    gameOver: boolean;
+    disconnectionTicks: Record<string, number>;
+}
+
+// Purely visual helper to know which squares to paint green
+const WINNING_LINES = [
+    [0, 1, 2], [3, 4, 5], [6, 7, 8],
+    [0, 3, 6], [1, 4, 7], [2, 5, 8],
+    [0, 4, 8], [2, 4, 6]
+];
+function getVisualWinningLine(board: string[]) {
+    for (const [a, b, c] of WINNING_LINES) {
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+            return [a, b, c];
+        }
+    }
+    return null;
 }
 
 export default function App() {
-  const [session, setSession] = useState<nakamajs.Session | null>(null);
-  const [socket, setSocket] = useState<nakamajs.Socket | null>(null);
-  const [matchId, setMatchId] = useState<string | null>(null);
-  const [gameState, setGameState] = useState<GameState | null>(null);
-  const [nickname, setNickname] = useState('');
-  const [status, setStatus] = useState('Enter your nickname to start');
-  const [myUserId, setMyUserId] = useState('');
-  const [leaderboard, setLeaderboard] = useState<any[]>([]);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
+    const [session, setSession] = useState<nakamajs.Session | null>(null);
+    const [socket, setSocket] = useState<nakamajs.Socket | null>(null);
+    const [matchId, setMatchId] = useState<string | null>(null);
+    const [gameState, setGameState] = useState<GameState | null>(null);
+    const [nickname, setNickname] = useState('');
+    const [status, setStatus] = useState('Enter your nickname to start');
+    const [myUserId, setMyUserId] = useState('');
+    const [leaderboard, setLeaderboard] = useState<any[]>([]);
+    const [showLeaderboard, setShowLeaderboard] = useState(false);
 
-  const login = async () => {
-    if (!nickname) return;
-    const storageKey = 'nk_device_id' + nickname;
-    let deviceId = localStorage.getItem(storageKey);
-    if (!deviceId) {
-      deviceId = nickname + "_" + crypto.randomUUID();
-      localStorage.setItem(storageKey, deviceId);
-    }
-    const sess = await CLIENT.authenticateDevice(deviceId, true, nickname);
-    setSession(sess);
-    setMyUserId(sess.user_id!);
+    const login = async () => {
+        if (!nickname) return;
+        setStatus('Connecting to server...');
 
-    const useSSL = process.env.REACT_APP_NAKAMA_SSL === "true";
-    const sock = CLIENT.createSocket(useSSL, false);
-    await sock.connect(sess, false);
-
-    sock.onmatchdata = (data) => {
-      const decoded = JSON.parse(new TextDecoder().decode(data.data));
-      if (decoded.type === 'game_start' || decoded.type === 'game_update') {
-        setGameState(decoded.state);
-        if(decoded.state.gameOver){
-          setStatus('Match Finished!!');
+        const storageKey = 'nk_device_id_' + nickname;
+        let deviceId = localStorage.getItem(storageKey);
+        if (!deviceId) {
+            deviceId = nickname + "_" + crypto.randomUUID();
+            localStorage.setItem(storageKey, deviceId);
         }
-      }
-      if (decoded.type === 'player_disconnected') {
-        setStatus('Opponent left the game!');
-      }
+
+        try {
+            const sess = await CLIENT.authenticateDevice(deviceId, true, nickname);
+            setSession(sess);
+            setMyUserId(sess.user_id!);
+
+            const useSSL = process.env.REACT_APP_NAKAMA_SSL === "true";
+            const sock = CLIENT.createSocket(useSSL, false);
+            await sock.connect(sess, false);
+
+            sock.onmatchdata = (data) => {
+                const decoded = JSON.parse(new TextDecoder().decode(data.data));
+
+                if (decoded.type === 'game_start' || decoded.type === 'game_update') {
+                    setGameState(decoded.state);
+                    setStatus('Match in progress');
+                    if (decoded.state.gameOver) {
+                        setStatus('Match Finished!!');
+                    }
+                }
+
+                if (decoded.type === 'player_disconnected') {
+                    // Setting the exact 15-second warning message you requested
+                    setStatus('Opponent left. If they do not reconnect within 15 seconds, the match will end.');
+                }
+            };
+
+            sock.onmatchmakermatched = async (matched) => {
+                setStatus('Opponent found! Joining...');
+                try {
+                    const match = await sock.joinMatch(matched.match_id);
+                    setMatchId(match.match_id);
+                } catch (e) {
+                    console.error('Error joining match: ', e);
+                    setStatus('Error joining match: ' + JSON.stringify(e));
+                }
+            };
+
+            setSocket(sock);
+            setStatus('Logged in as ' + nickname + '. Finding a match...');
+            await sock.addMatchmaker('*', 2, 2);
+
+        } catch (error: any) {
+            console.error("Login Error:", error);
+            if (error?.status === 409 || error?.message?.includes('409') || error?.message?.includes('in use')) {
+                setStatus(`Nickname "${nickname}" is already taken! Try another.`);
+                localStorage.removeItem(storageKey);
+            } else if (error?.message?.includes('Failed to fetch')) {
+                setStatus("Server offline or unreachable. Check your connection!");
+            } else {
+                setStatus("Login failed: " + (error?.message || "Unknown error"));
+            }
+        }
     };
 
-    sock.onmatchmakermatched = async (matched) => {
-      setStatus('Opponent found');
-      try {
-        const match = await sock.joinMatch(matched.match_id);
-        setMatchId(match.match_id);        
-      }
-      catch (e) {
-        console.error('Error: ', e);
-        setStatus('Error: ' + JSON.stringify(e));
-      }
+    const makeMove = async (position: number) => {
+        if (!socket || !matchId) return;
+        await socket.sendMatchState(matchId, 1, JSON.stringify({ type: 'move', position }));
     };
 
-    setSocket(sock);
-    setStatus('Logged in as ' + nickname + '. Finding a match...');
-    await sock.addMatchmaker('*', 2, 2);
-  };
+    const fetchLeaderboard = async () => {
+        if (!session) return;
+        const result = await CLIENT.rpc(session, "get_leaderboard", {});
+        const data = (result.payload as any ?? []);
+        setLeaderboard(data);
+        setShowLeaderboard(true);
+    }
 
-  const makeMove = async (position: number) => {
-    if (!socket || !matchId || !gameState) return;
-    if (gameState.gameOver) return;
-    if (gameState.currentTurn !== myUserId) return;
-    if (gameState.board[position] !== '') return;
+    const playAgain = async () => {
+        if (!socket) return;
+        setGameState(null);
+        setMatchId(null);
+        setStatus("Finding a new match....");
+        await socket.addMatchmaker('*', 2, 2);
+    };
 
-    await socket.sendMatchState(matchId, 1, JSON.stringify({ type: 'move', position }));
-  };
+    const isMyTurn = gameState?.currentTurn === myUserId;
+    const myMark = gameState?.marks ? gameState.marks[myUserId] : '';
 
-  const fetchLeaderboard = async () => {
-    if (!session) return;
-    const result = await CLIENT.rpc(session, "get_leaderboard", {});
-    const data = (result.payload as any ?? []);
-    setLeaderboard(data);
-    setShowLeaderboard(true);
-  }
+    const winningLine = useMemo(() => {
+        if (!gameState || !gameState.gameOver) return null;
+        return getVisualWinningLine(gameState.board);
+    }, [gameState]);
 
-  const playAgain = async () => {
-    if(!socket) return;
-    setGameState(null);
-    setMatchId(null);
-    setStatus("Finding a new match....");
-    await socket.addMatchmaker('*', 2, 2);    
-  };
+    // --- VIEW: LOGIN ---
+    if (!session) {
+        return (
+            <main className="app">
+                <section className="game-card">
+                    <h1 className="title">Tic Tac Toe</h1>
+                    <p className="status" style={{ color: status.includes('taken') || status.includes('offline') ? '#ef4444' : '#cbd5e1' }}>
+                        {status}
+                    </p>
+                    <input
+                        className="input-field"
+                        placeholder="Enter nickname"
+                        value={nickname}
+                        onChange={e => setNickname(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && login()}
+                    />
+                    <button className="reset-btn" onClick={login}>Play</button>
+                </section>
+            </main>
+        );
+    }
 
-  const isMyTurn = gameState?.currentTurn === myUserId;
-  const myMark = gameState?.marks ? gameState.marks[myUserId] : '';
+    // --- VIEW: LEADERBOARD ---
+    if (showLeaderboard) {
+        return (
+            <main className="app">
+                <section className="game-card" style={{ width: 'min(500px, 100%)' }}>
+                    <h1 className="title">🏆 Leaderboard</h1>
+                    <table className="table-container">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Player</th>
+                                <th>Wins</th>
+                                <th>Losses</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {leaderboard.map((entry, i) => (
+                                <tr key={i}>
+                                    <td>{i + 1}</td>
+                                    <td>{entry.username}</td>
+                                    <td>{entry.wins}</td>
+                                    <td>{entry.losses}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    <button className="reset-btn secondary-btn" onClick={() => setShowLeaderboard(false)}>
+                        Back to Game
+                    </button>
+                </section>
+            </main>
+        );
+    }
 
-  if (!session) {
+    // --- VIEW: GAME BOARD ---
     return (
-      <div style={styles.container}>
-        <h1>Tic Tac Toe</h1>
-        <input
-          style={styles.input}
-          placeholder="Enter nickname"
-          value={nickname}
-          onChange={e => setNickname(e.target.value)}
-        />
-        <button style={styles.button} onClick={login}>Play</button>
-      </div>
-    );
-  }
+        <main className="app">
+            <section className="game-card">
+                <h1 className="title">Tic Tac Toe</h1>
+                <p className="status" style={{ color: status.includes('Opponent left') ? '#f59e0b' : '#cbd5e1' }}>
+                    {status}
+                </p>
 
-  if (showLeaderboard) {
-    return (
-      <div style={styles.container}>
-        <h1>🏆 Leaderboard</h1>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>Rank</th>
-              <th style={styles.th}>Player</th>
-              <th style={styles.th}>Wins</th>
-              <th style={styles.th}>Losses</th>
-            </tr>
-          </thead>
-          <tbody>
-            {leaderboard.map((entry, i) => (
-              <tr key={i}>
-                <td style={styles.td}>{i + 1}</td>
-                <td style={styles.td}>{entry.username}</td>
-                <td style={styles.td}>{entry.wins}</td>
-                <td style={styles.td}>{entry.losses}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <button style={styles.button} onClick={() => setShowLeaderboard(false)}>Back</button>
-      </div>
-    );
-  }
+                {gameState && (
+                    <>
+                        {/* Removed the "Opponent's turn" text if the game is over */}
+                        {!gameState.gameOver && (
+                            <p className="status" style={{ marginTop: 0, fontWeight: isMyTurn ? 'bold' : 'normal', color: isMyTurn ? '#22c55e' : '#cbd5e1' }}>
+                                {isMyTurn ? `🟢 Your turn (${myMark})` : `⏳ Opponent's turn`}
+                            </p>
+                        )}
 
-  return (
-    <div style={styles.container}>
-      <h1>Tic Tac Toe</h1>
-      <p>{status}</p>      
-      {gameState && (
-        <>
-          <p>{isMyTurn ? '🟢 Your turn (' + myMark + ')' : "⏳ Opponent's turn"}</p>
-          {gameState.gameOver && (
-            <>
-              <h2>{gameState.winner === myUserId ? '🏆 You Win!' : gameState.winner ? '😞 You Lose!' : "🤝 It's a Draw!"}</h2>
-              <div style={{display: 'flex', gap:10, marginTop:10}}>
-                <button style={styles.button} onClick={playAgain}>🔄 Play Again</button>
-                <button style={styles.secondaryButton} onClick={fetchLeaderboard}>🏆 Leaderboard</button>
-              </div>
-            </>
-          )}
-          <div style={styles.board}>
-            {gameState.board.map((cell, i) => (
-              <div key={i} style={styles.cell} onClick={() => makeMove(i)}>
-                {cell}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-      {!gameState && matchId && <p>Waiting for opponent to join...</p>}
-      {!matchId && <p>🔍 Searching for opponent...</p>}
-    </div>
-  );
+                        {gameState.gameOver && (
+                            <h2 style={{ textAlign: 'center', margin: '10px 0', color: gameState.winner === myUserId ? '#22c55e' : '#f8fafc' }}>
+                                {gameState.winner === myUserId ? '🏆 You Win!' : gameState.winner ? '😞 You Lose!' : "🤝 It's a Draw!"}
+                            </h2>
+                        )}
+
+                        <div className="board">
+                            {gameState.board.map((cell, i) => {
+                                const isWinningCell = winningLine?.includes(i);
+                                return (
+                                    <button
+                                        key={i}
+                                        type="button"
+                                        className={`square ${isWinningCell ? "winning" : ""}`}
+                                        onClick={() => makeMove(i)}
+                                        // We disable the button purely for UI/UX so it doesn't look clickable when full
+                                        disabled={cell !== '' || gameState.gameOver}
+                                    >
+                                        {cell}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {gameState.gameOver && (
+                            <div className="btn-group">
+                                <button className="reset-btn" onClick={playAgain}>🔄 Play Again</button>
+                                <button className="reset-btn secondary-btn" onClick={fetchLeaderboard}>🏆 Leaderboard</button>
+                            </div>
+                        )}
+                    </>
+                )}
+
+                {!gameState && matchId && <p className="status">Waiting for opponent to join...</p>}
+            </section>
+        </main>
+    );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  container: { display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: 'sans-serif', padding: 20 },
-  input: { padding: 10, fontSize: 16, marginBottom: 10, borderRadius: 6, border: '1px solid #ccc', width: 200 },
-  button: { padding: '10px 30px', fontSize: 16, borderRadius: 6, background: '#4CAF50', color: 'white', border: 'none', cursor: 'pointer' },
-  board: { display: 'grid', gridTemplateColumns: 'repeat(3, 100px)', gap: 8, marginTop: 20 },
-  cell: { width: 100, height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, fontWeight: 'bold', background: '#f0f0f0', borderRadius: 8, cursor: 'pointer' },
-  table: { borderCollapse: 'collapse', marginBottom: 20, width: '100%', maxWidth: 400 },
-th: { background: '#4CAF50', color: 'white', padding: '10px 20px', textAlign: 'left' },
-td: { padding: '8px 20px', borderBottom: '1px solid #ddd' },
-secondaryButton: { padding: '10px 30px', fontSize: 16, borderRadius: 6, background: '#2196F3', color: 'white', border: 'none', cursor: 'pointer' },
-};
