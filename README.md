@@ -6,7 +6,7 @@ Realtime multiplayer Tic-Tac-Toe built with a Nakama authoritative server and a 
 <img width="2559" height="1376" alt="image" src="https://github.com/user-attachments/assets/4cd7f29f-a319-4b12-8044-eae1e84ea8c5" />
 
 
-## Tech Stack
+### Tech Stack
 
 - Backend: Nakama runtime module written in TypeScript
 - Match logic: authoritative server-side match handler
@@ -14,13 +14,13 @@ Realtime multiplayer Tic-Tac-Toe built with a Nakama authoritative server and a 
 - Realtime transport: Nakama socket + matchmaker
 - Local infra: Docker Compose (Nakama + Postgres)
 
-## Project Structure
+### Project Structure
 
 - `Server/` - Nakama runtime module source, build config, and Docker Compose file
 - `ttt-frontend/` - React client app
 
 
-## Features
+### Features
 
 - Device-based authentication with nickname support
 - Automatic 1v1 matchmaking
@@ -30,7 +30,7 @@ Realtime multiplayer Tic-Tac-Toe built with a Nakama authoritative server and a 
 - Win/loss tracking in Nakama leaderboard
 - Leaderboard view in frontend
 
-## Prerequisites
+### Prerequisites
 
 - Node.js 18+ and npm
 - Docker Desktop (or Docker Engine + Compose)
@@ -74,7 +74,7 @@ npm start
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## Frontend Environment Variables
+### Frontend Environment Variables
 
 Configure these in `ttt-frontend/.env`:
 
@@ -90,7 +90,7 @@ Notes:
 - The app currently falls back to a hardcoded host if `REACT_APP_NAKAMA_HOST` is not set.
 - For local Docker-based development, set host to `localhost`.
 
-## How It Works
+### How It Works
 
 1. Player enters nickname and authenticates via `authenticateDevice`.
 2. Client joins matchmaker (`min=2`, `max=2`).
@@ -100,7 +100,7 @@ Notes:
 6. On game over, server writes win/loss records to `tictactoe_wins` leaderboard.
 
 
-## Development Tips
+### Development Tips
 
 - Rebuild server module after backend changes:
 
@@ -123,8 +123,8 @@ cd Server
 docker compose down
 ```
 
-### Deployment Notes
-## ⚠️ Known Limitation: SSL and Browser Security
+# Deployment Notes
+### ⚠️ Known Limitation: SSL and Browser Security
 
 Currently, the backend is deployed without SSL/TLS encryption (HTTP/WS only). Due to strict modern browser security policies regarding Mixed Content, please note the following limitations:
 
@@ -139,6 +139,26 @@ An attempt was previously made to secure the DigitalOcean backend using an Nginx
 - A new window opens opens, Scroll down till you see Insecure Content change it from Blocked(default) to Allow.
 - <img width="2526" height="1186" alt="image" src="https://github.com/user-attachments/assets/487921be-c934-4f56-99ef-2fe29bce0660" />
 - For Edge: Click on the lock icon next to URL and select Permissions for this site & Allow on insecure sites. <img width="938" height="610" alt="image" src="https://github.com/user-attachments/assets/c9ecbf16-5193-482e-8260-62d581e95317" />
+
+## Additional notes on Chrome:
+### 🛑 Troubleshooting: Browser Security & "Provisional Headers"
+
+In some cases, the application may fail to connect to the backend server with an error message such as **"Server offline or unreachable"** or **"Failed to fetch,"** particularly when using Google Chrome.
+
+#### Understanding "Provisional headers are shown"
+When inspecting the **Network** tab in Chrome DevTools, you may see the message **"Provisional headers are shown."** This is a specific signal indicating that the request never actually left the browser. Chrome’s internal security engine intercepted the request before it could hit the network wire. This failure does not mean the DigitalOcean server is down; rather, it means the browser blocked the request because it was deemed "unsafe" under Mixed Content policies.
+
+#### The "Nuclear" Fix for Chrome Development
+To bypass these security blockades during testing or development without a full SSL setup, you can instruct Chrome's core engine to treat the backend IP as a trusted origin.
+
+1.  Navigate to the following address in Chrome:
+    `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
+2.  Set the dropdown menu to **Enabled**.
+3.  In the text box provided, paste the backend URL:
+    `http://168.144.27.183:7350`
+4.  **Relaunch Chrome** for the changes to take effect.
+
+This configuration tells the browser to treat this specific HTTP origin as if it were secure, preventing the internal security engine from intercepting the API calls.
 
 ## How test on browser:
 - Open the deployed link `https://lila-backend-assignment.vercel.app/` in two tabs side by side
